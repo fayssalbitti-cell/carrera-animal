@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Carrera de Animales - Calle</title>
+<style>
+  body {
+    margin: 0;
+    background: #1e1e1e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  canvas {
+    background: #9bd3ff;
+    border: 4px solid #000;
+  }
+</style>
+</head>
+
+<body>
+<canvas id="game" width="900" height="450"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+/* ===== CONFIG ===== */
+const GROUND_Y = 330;
+const gravity = 0.6;
+
+/* ===== JUGADOR ===== */
+let player = {
+  x: 120,
+  y: GROUND_Y,
+  w: 40,
+  h: 40,
+  vy: 0,
+  jumping: false,
+  speed: 4,
+  animal: "perro",
+  lives: 3
+};
+
+/* ===== JUEGO ===== */
+let obstacles = [];
+let powerUps = [];
+let score = 0;
+let level = 1;
+let gameOver = false;
+
+/* ===== CONTROLES ===== */
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && !player.jumping && !gameOver) {
+    player.vy = -13;
+    player.jumping = true;
+  }
+  if (e.code === "Enter" && gameOver) resetGame();
+});
+
+/* ===== RESET ===== */
+function resetGame() {
+  obstacles = [];
+  powerUps = [];
+  score = 0;
+  level = 1;
+  player.lives = 3;
+  player.speed = 4;
+  gameOver = false;
+}
+
+/* ===== DIBUJAR ANIMAL ===== */
+function drawAnimal() {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+
+  if (player.animal === "perro") {
+    ctx.fillStyle = "#c68642";
+    ctx.fillRect(0, 10, 40, 25); // cuerpo
+    ctx.fillRect(30, 0, 20, 20); // cabeza
+    ctx.fillStyle = "black";
+    ctx.fillRect(45, 6, 4, 4); // ojo
+  }
+
+  if (player.animal === "gato") {
+    ctx.fillStyle = "#777";
+    ctx.fillRect(0, 10, 40, 25);
+    ctx.fillRect(30, 0, 18, 18);
+  }
+
+  if (player.animal === "conejo") {
+    ctx.fillStyle = "#eee";
+    ctx.fillRect(0, 12, 40, 23);
+    ctx.fillRect(32, 0, 16, 20);
+    ctx.fillRect(35, -15, 4, 15); // oreja
+    ctx.fillRect(42, -15, 4, 15); // oreja
+  }
+
+  ctx.restore();
+}
+
+/* ===== ENEMIGOS ===== */
+function createObstacle() {
+  obstacles.push({
+    x: canvas.width,
+    y: GROUND_Y + 10,
+    w: 35,
+    h: 35
+  });
+}
+
+/* ===== POWER UPS ===== */
+function createPowerUp() {
+  powerUps.push({
+    x: canvas.width,
+    y: GROUND_Y - 40,
+    w: 25,
+    h: 25,
+    type: Math.random() > 0.5 ? "speed" : "life"
+  });
+}
+
+setInterval(createObstacle, 1700);
+setInterval(createPowerUp, 5000);
+
+/* ===== COLISION ===== */
+function collide(a, b) {
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
+}
+
+/* ===== UPDATE ===== */
+function update() {
+  if (gameOver) return;
+
+  // física
+  player.y += player.vy;
+  player.vy += gravity;
+
+  if (player.y >= GROUND_Y) {
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.jumping = false;
+  }
+
+  // mover obstáculos
+  obstacles.forEach(o => o.x -= (player.speed + level));
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  // mover powerups
+  powerUps.forEach(p => p.x -= (player.speed + level));
+  powerUps = powerUps.filter(p => p.x + p.w > 0);
+
+  // colisiones malas
+  obstacles.forEach((o, i) => {
+    if (collide(player, o)) {
+      player.lives--;
+      obstacles.splice(i, 1);
+      if (player.lives <= 0) gameOver = true;
+    }
+  });
+
+  // colisiones buenas
+  powerUps.forEach((p, i) => {
+    if (collide(player, p)) {
+      if (p.type === "speed") {
+        player.speed = 7;
+        setTimeout(() => player.speed = 4, 3000);
+      }
+      if (p.type === "life" && player.lives < 5) {
+        player.lives++;
+      }
+      powerUps.splice(i, 1);
+    }
+  });
+
+  score++;
+  level = Math.floor(score / 600) + 1;
+}
+
+/* ===== MAPA CALLE ===== */
+function drawMap() {
+  // cielo
+  ctx.fillStyle = "#9bd3ff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // edificios
+  for (let i = 0; i < canvas.width; i += 120) {
+    ctx.fillStyle = "#555";
+    ctx.fillRect(i, 50, 80, 200);
+    ctx.fillStyle = "#ffd700";
+    ctx.fillRect(i + 10, 70, 15, 15);
+    ctx.fillRect(i + 40, 70, 15, 15);
+  }
+
+  // carretera
+  ctx.fillStyle = "#333";
+  ctx.fillRect(0, GROUND_Y + 40, canvas.width, 80);
+
+  // líneas calle
+  ctx.strokeStyle = "white";
+  ctx.setLineDash([20, 15]);
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y + 80);
+  ctx.lineTo(canvas.width, GROUND_Y + 80);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ===== DRAW ===== */
+function draw() {
+  drawMap();
+
+  // animal
+  drawAnimal();
+
+  // enemigos
+  ctx.fillStyle = "red";
+  obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+  // powerups
+  powerUps.forEach(p => {
+    ctx.fillStyle = p.type === "speed" ? "yellow" : "lime";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  });
+
+  // HUD
+  ctx.fillStyle = "black";
+  ctx.font = "18px Arial";
+  ctx.fillText("Puntos: " + score, 20, 25);
+  ctx.fillText("Nivel: " + level, 20, 45);
+  ctx.fillText("Vidas: ❤️".repeat(player.lives), 20, 65);
+
+  if (gameOver) {
+    ctx.font = "40px Arial";
+    ctx.fillText("GAME OVER", 330, 200);
+    ctx.font = "20px Arial";
+    ctx.fillText("Pulsa ENTER para reiniciar", 310, 240);
+  }
+}
+
+/* ===== LOOP ===== */
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
