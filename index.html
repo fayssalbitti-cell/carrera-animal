@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Carrera de Animales</title>
+<style>
+  body {
+    margin: 0;
+    background: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: Arial;
+  }
+  canvas {
+    background: #87ceeb;
+    border: 4px solid black;
+  }
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="900" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+/* ===== JUGADOR ===== */
+let player = {
+  x: 80,
+  y: 300,
+  w: 40,
+  h: 40,
+  vy: 0,
+  jumping: false,
+  speed: 4
+};
+
+const gravity = 0.6;
+
+/* ===== JUEGO ===== */
+let obstacles = [];
+let vaccines = [];
+let score = 0;
+let level = 1;
+let gameOver = false;
+
+/* ===== CONTROLES ===== */
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && !player.jumping) {
+    player.vy = -12;
+    player.jumping = true;
+  }
+});
+
+/* ===== CREAR OBSTÁCULOS ===== */
+function createObstacle() {
+  obstacles.push({
+    x: canvas.width,
+    y: 320,
+    w: 30,
+    h: 30
+  });
+}
+
+/* ===== CREAR VACINOS BUENOS ===== */
+function createVaccine() {
+  vaccines.push({
+    x: canvas.width,
+    y: 280,
+    w: 20,
+    h: 20
+  });
+}
+
+setInterval(createObstacle, 1800);
+setInterval(createVaccine, 5000);
+
+/* ===== COLISIONES ===== */
+function collide(a, b) {
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
+}
+
+/* ===== UPDATE ===== */
+function update() {
+  if (gameOver) return;
+
+  // jugador
+  player.y += player.vy;
+  player.vy += gravity;
+
+  if (player.y >= 300) {
+    player.y = 300;
+    player.vy = 0;
+    player.jumping = false;
+  }
+
+  // obstáculos
+  obstacles.forEach(o => o.x -= (player.speed + level));
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  // vacunas
+  vaccines.forEach(v => v.x -= (player.speed + level));
+  vaccines = vaccines.filter(v => v.x + v.w > 0);
+
+  // colisiones malas
+  obstacles.forEach(o => {
+    if (collide(player, o)) {
+      gameOver = true;
+    }
+  });
+
+  // colisiones buenas
+  vaccines.forEach((v, i) => {
+    if (collide(player, v)) {
+      player.speed = 7;
+      setTimeout(() => player.speed = 4, 3000);
+      vaccines.splice(i, 1);
+    }
+  });
+
+  score++;
+  level = Math.floor(score / 500) + 1;
+
+  if (level >= 5) {
+    gameOver = true;
+  }
+}
+
+/* ===== DRAW ===== */
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // suelo
+  ctx.fillStyle = "#3cb371";
+  ctx.fillRect(0, 340, canvas.width, 60);
+
+  // jugador
+  ctx.fillStyle = "orange";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // obstáculos (enemigos)
+  ctx.fillStyle = "red";
+  obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+  // vacunas
+  ctx.fillStyle = "yellow";
+  vaccines.forEach(v => ctx.fillRect(v.x, v.y, v.w, v.h));
+
+  // HUD
+  ctx.fillStyle = "black";
+  ctx.font = "18px Arial";
+  ctx.fillText("Puntos: " + score, 20, 30);
+  ctx.fillText("Nivel: " + level, 20, 55);
+
+  if (gameOver) {
+    ctx.fillStyle = "black";
+    ctx.font = "40px Arial";
+    ctx.fillText(
+      level >= 5 ? "¡GANASTE LA CARRERA!" : "TE ATRAPARON 😵",
+      200,
+      200
+    );
+  }
+}
+
+/* ===== LOOP ===== */
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
